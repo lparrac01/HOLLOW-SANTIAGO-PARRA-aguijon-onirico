@@ -1,12 +1,56 @@
 let caballerito;
+let video;
+let faceMesh;
+let camera;
+let faceX, faceY;
+let prevX, prevY;
+
+function onResults(results) {
+  if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+    let landmarks = results.multiFaceLandmarks[0];
+    let nose = landmarks[1];
+    faceX = nose.x * width;
+    faceY = nose.y * height;
+  }
+}
 
 function setup() {
   createCanvas(640, 480);
-  caballerito = new hollow(width / 2, height / 2, 100);
+  video = createCapture(VIDEO);
+  video.size(640, 480);
+  video.hide();
+  faceX = width / 2;
+  faceY = height / 2;
+  prevX = faceX;
+  prevY = faceY;
+  faceMesh = new FaceMesh({
+    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.16357948/${file}`
+  });
+  faceMesh.setOptions({
+    maxNumFaces: 1,
+    refineLandmarks: false,
+    minDetectionConfidence: 0.5,
+    minTrackingConfidence: 0.5
+  });
+  faceMesh.onResults(onResults);
+  camera = new Camera(video.elt, {
+    onFrame: async () => {
+      await faceMesh.send({image: video.elt});
+    },
+    width: 640,
+    height: 480
+  });
+  camera.start();
+  caballerito = new hollow(faceX, faceY, 100);
 }
 
 function draw() {
   background(100, 149, 237);
+  // Smooth the position
+  prevX = lerp(prevX, faceX, 0.1);
+  prevY = lerp(prevY, faceY, 0.1);
+  caballerito.x = prevX;
+  caballerito.y = prevY;
   caballerito.show();
 }
 
