@@ -1,34 +1,22 @@
 let caballerito;
 let video;
 let faceMesh;
+let faces = [];
 let camera;
-let faceX, faceY;
-let prevX, prevY;
-
-function onResults(results) {
-  if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
-    let landmarks = results.multiFaceLandmarks[0];
-    let nose = landmarks[1];
-    faceX = nose.x * width;
-    faceY = nose.y * height;
-  }
-}
 
 function setup() {
   createCanvas(640, 480);
   video = createCapture(VIDEO);
   video.size(640, 480);
   video.hide();
-  faceX = width / 2;
-  faceY = height / 2;
-  prevX = faceX;
-  prevY = faceY;
   faceMesh = new FaceMesh({
-    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.16357948/${file}`
+    locateFile: (file) => {
+      return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4/${file}`;
+    }
   });
   faceMesh.setOptions({
     maxNumFaces: 1,
-    refineLandmarks: false,
+    refineLandmarks: true,
     minDetectionConfidence: 0.5,
     minTrackingConfidence: 0.5
   });
@@ -41,16 +29,23 @@ function setup() {
     height: 480
   });
   camera.start();
-  caballerito = new hollow(faceX, faceY, 100);
+  caballerito = new hollow(width / 2, height / 2, 100);
+}
+
+function onResults(results) {
+  faces = results.multiFaceLandmarks;
 }
 
 function draw() {
   background(100, 149, 237);
-  // Smooth the position
-  prevX = lerp(prevX, faceX, 0.1);
-  prevY = lerp(prevY, faceY, 0.1);
-  caballerito.x = prevX;
-  caballerito.y = prevY;
+  if (faces.length > 0) {
+    let face = faces[0];
+    let nose = face[1];
+    let x = nose.x * width;
+    let y = nose.y * height;
+    caballerito.x = x;
+    caballerito.y = y;
+  }
   caballerito.show();
 }
 
