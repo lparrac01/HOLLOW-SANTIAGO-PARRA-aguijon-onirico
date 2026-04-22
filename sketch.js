@@ -1,52 +1,57 @@
 let caballerito;
 let video;
 let faceMesh;
-let faces = [];
-let camera;
+let predictions = [];
 
 function setup() {
-  createCanvas(640, 480);
+  createCanvas(windowWidth, windowHeight);
   video = createCapture(VIDEO);
   video.size(640, 480);
   video.hide();
-  faceMesh = new FaceMesh({
-    locateFile: (file) => {
-      return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4/${file}`;
-    }
-  });
-  faceMesh.setOptions({
-    maxNumFaces: 1,
-    refineLandmarks: true,
-    minDetectionConfidence: 0.5,
-    minTrackingConfidence: 0.5
-  });
-  faceMesh.onResults(onResults);
-  camera = new Camera(video.elt, {
-    onFrame: async () => {
-      await faceMesh.send({image: video.elt});
-    },
-    width: 640,
-    height: 480
-  });
-  camera.start();
+  faceMesh = ml5.faceMesh(video, { maxFaces: 1 }, modelReady);
   caballerito = new hollow(width / 2, height / 2, 100);
 }
 
-function onResults(results) {
-  faces = results.multiFaceLandmarks;
+function modelReady() {
+  console.log('FaceMesh model ready');
 }
 
 function draw() {
   background(100, 149, 237);
-  if (faces.length > 0) {
-    let face = faces[0];
-    let nose = face[1];
-    let x = nose.x * width;
-    let y = nose.y * height;
-    caballerito.x = x;
-    caballerito.y = y;
+  faceMesh.detect(video, gotResults);
+  if (predictions.length > 0) {
+    let face = predictions[0];
+    let x = map(face.box.xMin, 0, video.width, 0, width);
+    let y = map(face.box.yMin, 0, video.height, 0, height);
+    let w = map(face.box.width, 0, video.width, 0, width);
+    let h = map(face.box.height, 0, video.height, 0, height);
+    caballerito.x = x + w / 2;
+    caballerito.y = y + h / 2;
+    caballerito.size = map(w, 50, 200, 50, 200);
+    
+    // Para expresiones: calcular sonrisa
+    let leftMouth = face.keypoints[61];
+    let rightMouth = face.keypoints[291];
+    let mouthWidth = dist(leftMouth.x, leftMouth.y, rightMouth.x, rightMouth.y);
+    if (mouthWidth > 50) { // umbral para sonrisa
+      caballerito.smiling = true;
+    } else {
+      caballerito.smiling = false;
+    }
   }
   caballerito.show();
+}
+
+function gotResults(err, results) {
+  if (err) {
+    console.error(err);
+    return;
+  }
+  predictions = results;
+}
+
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
 }
 
 class hollow {
@@ -54,6 +59,7 @@ class hollow {
     this.x = x;
     this.y = y;
     this.size = size;
+    this.smiling = false;
   }
 
  show() {
@@ -185,7 +191,7 @@ class hollow {
   line(28, -155, 22, -162);
 
   // Ojos (huecos negros)
-  fill(0);
+  if (this.smiling) fill(255, 0, 0); else fill(0);
   noStroke();
   ellipse(-25, -32, 38, 44);
   ellipse(25, -32, 38, 44);
